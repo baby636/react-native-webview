@@ -236,7 +236,7 @@ static NSDictionary* customCertificatesForHost;
     NSString *source = [NSString stringWithFormat:
       @"window.%@ = {"
        "  postMessage: function (data) {"
-       "    window.webkit.messageHandlers.%@.postMessage(String(data));"
+       "    window.webkit.messageHandlers.%@.postMessage(data);"
        "  }"
        "};", MessageHandlerName, MessageHandlerName
     ];
