@@ -27,6 +27,8 @@ import android.webkit.DownloadListener;
 import android.webkit.GeolocationPermissions;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
+import android.webkit.ServiceWorkerClient;
+import android.webkit.ServiceWorkerController;
 import android.webkit.URLUtil;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -68,16 +70,27 @@ import com.reactnativecommunity.webview.events.TopShouldStartLoadWithRequestEven
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
+import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
 import javax.annotation.Nullable;
+
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+import okhttp3.OkHttpClient.Builder;
+import static okhttp3.internal.Util.UTF_8;
 
 /**
  * Manages instances of {@link WebView}
@@ -122,6 +135,9 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
   public static final int COMMAND_CLEAR_HISTORY = 1002;
 
   protected static final String REACT_CLASS = "RNCWebView";
+  protected final static String HEADER_CONTENT_TYPE = "content-type";
+  protected static final String MIME_TEXT_HTML = "text/html";
+  protected static final String MIME_UNKNOWN = "application/octet-stream";
   protected static final String HTML_ENCODING = "UTF-8";
   protected static final String HTML_MIME_TYPE = "text/html";
   protected static final String JAVASCRIPT_INTERFACE = "ReactNativeWebView";
@@ -130,6 +146,7 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
   // state and release page resources (including any running JavaScript).
   protected static final String BLANK_URL = "about:blank";
   protected WebViewConfig mWebViewConfig;
+  private OkHttpClient httpClient;
 
   protected RNCWebChromeClient mWebChromeClient = null;
   protected boolean mAllowsFullscreenVideo = false;
@@ -137,6 +154,12 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
   protected @Nullable String mUserAgentWithApplicationName = null;
 
   public RNCWebViewManager() {
+    Builder b = new Builder();
+    httpClient = b
+      .followRedirects(false)
+      .followSslRedirects(false)
+      .build();
+
     mWebViewConfig = new WebViewConfig() {
       public void configWebView(WebView webView) {
       }
@@ -159,6 +182,54 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
     return REACT_CLASS;
   }
 
+  public static Boolean urlStringLooksInvalid(String urlString) {
+    return urlString == null ||
+      urlString.trim().equals("") ||
+      !(urlString.startsWith("http") && !urlString.startsWith("www")) ||
+      urlString.contains("|");
+  }
+
+  public static Boolean responseRequiresJSInjection(Response response) {
+    if (response.isRedirect()) {
+      return false;
+    }
+    final String contentTypeAndCharset = response.header(HEADER_CONTENT_TYPE, MIME_UNKNOWN);
+    return contentTypeAndCharset.startsWith(MIME_TEXT_HTML);
+  }
+
+  @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
+  public WebResourceResponse shouldInterceptRequest(WebResourceRequest request, Boolean onlyMainFrame, RNCWebView webView) {
+    Uri url = request.getUrl();
+    String urlStr = url.toString();
+    if (onlyMainFrame && !request.isForMainFrame()) {
+      return null;
+    }
+    if (RNCWebViewManager.urlStringLooksInvalid(urlStr)) {
+      return null;
+    }
+    try {
+
+
+      Request req = new Request.Builder()
+        .header("User-Agent", mUserAgent)
+        .url(urlStr)
+        .build();
+      Response response = httpClient.newCall(req).execute();
+      if (!RNCWebViewManager.responseRequiresJSInjection(response)) {
+        return null;
+      }
+      InputStream is = response.body().byteStream();
+      MediaType contentType = response.body().contentType();
+      Charset charset = contentType != null ? contentType.charset(UTF_8) : UTF_8;
+      if (response.code() < HttpURLConnection.HTTP_MULT_CHOICE || response.code() >= HttpURLConnection.HTTP_BAD_REQUEST) {
+        is = new InputStreamWithInjectedJS(is, webView.injectedJS, charset, webView.getContext());
+      }
+      return new WebResourceResponse("text/html", charset.name(), is);
+    } catch (IOException e) {
+      return null;
+    }
+  }
+
   protected RNCWebView createRNCWebViewInstance(ThemedReactContext reactContext) {
     return new RNCWebView(reactContext);
   }
@@ -171,6 +242,7 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
     reactContext.addLifecycleEventListener(webView);
     mWebViewConfig.configWebView(webView);
     WebSettings settings = webView.getSettings();
+    String USER_AGENT = settings.getUserAgentString();
     settings.setBuiltInZoomControls(true);
     settings.setDisplayZoomControls(false);
     settings.setDomStorageEnabled(true);
@@ -188,9 +260,24 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
       new LayoutParams(LayoutParams.MATCH_PARENT,
         LayoutParams.MATCH_PARENT));
 
-    if (ReactBuildConfig.DEBUG && Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
       WebView.setWebContentsDebuggingEnabled(true);
     }
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+      ServiceWorkerController swController = ServiceWorkerController.getInstance();
+      swController.setServiceWorkerClient(new ServiceWorkerClient() {
+        @Override
+        public WebResourceResponse shouldInterceptRequest(WebResourceRequest request) {
+          WebResourceResponse response = RNCWebViewManager.this.shouldInterceptRequest(request, false, webView);
+          if (response != null) {
+            return response;
+          }
+          return super.shouldInterceptRequest(request);
+        }
+      });
+    }
+
 
     webView.setDownloadListener(new DownloadListener() {
       public void onDownloadStart(String url, String userAgent, String contentDisposition, String mimetype, long contentLength) {
@@ -708,7 +795,7 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
     }
   }
 
-  protected static class RNCWebViewClient extends WebViewClient {
+  protected class RNCWebViewClient extends WebViewClient {
 
     protected boolean mLastLoadFailed = false;
     protected @Nullable
@@ -755,6 +842,14 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
     @Override
     public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
       final String url = request.getUrl().toString();
+      // Disabling the URL schemes that cause problems
+      String[] blacklistedUrls = { "intent:#Intent;action=com.ledger.android.u2f.bridge.AUTHENTICATE" };
+      for(int i=0; i< blacklistedUrls.length; i++){
+        String badUrl = blacklistedUrls[i];
+        if(url.contains(badUrl)){
+          return true;
+        }
+      }
       return this.shouldOverrideUrlLoading(view, url);
     }
 
@@ -818,6 +913,23 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
       event.putBoolean("canGoBack", webView.canGoBack());
       event.putBoolean("canGoForward", webView.canGoForward());
       return event;
+    }
+
+    @Override
+    public WebResourceResponse shouldInterceptRequest(WebView view, String url) {
+      return null;
+    }
+    @Override
+    public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+      WebResourceResponse response = null;
+      if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+        response = RNCWebViewManager.this.shouldInterceptRequest(request, true, (RNCWebView) view);
+        if (response != null) {
+          return response;
+        }
+      }
+
+      return super.shouldInterceptRequest(view, request);
     }
 
     public void setUrlPrefixesForDefaultIntent(ReadableArray specialUrls) {
