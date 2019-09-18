@@ -249,6 +249,14 @@ static NSDictionary* customCertificatesForHost;
       WKUserScript *injectedScript = [[WKUserScript alloc] initWithSource:_injectedJavaScriptBeforeContentLoaded injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES];
       [wkWebViewConfig.userContentController addUserScript:injectedScript];
     }
+    
+    if (_injectedJavaScript) {
+        WKUserScript *initialScript =
+        [[WKUserScript alloc] initWithSource:_injectedJavaScript
+                               injectionTime:WKUserScriptInjectionTimeAtDocumentStart
+                              forMainFrameOnly: YES];
+        [wkWebViewConfig.userContentController addUserScript:initialScript];
+    }
   }
 
 #if !TARGET_OS_OSX
