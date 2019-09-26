@@ -1009,6 +1009,11 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
     @Override
     public void onProgressChanged(WebView webView, int newProgress) {
       super.onProgressChanged(webView, newProgress);
+
+      if(newProgress >= 10){
+        ((RNCWebView) webView).setMessagingEnabled(true);
+      }
+
       final String url = webView.getUrl();
       if (
         url != null
@@ -1029,6 +1034,7 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
         new TopLoadingProgressEvent(
           webView.getId(),
           event));
+
     }
 
     @Override
