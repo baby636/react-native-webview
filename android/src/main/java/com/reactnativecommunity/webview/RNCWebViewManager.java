@@ -482,7 +482,7 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
   public void setMessagingEnabled(WebView view, boolean enabled) {
     ((RNCWebView) view).setMessagingEnabled(enabled);
   }
-   
+
   @ReactProp(name = "incognito")
   public void setIncognito(WebView view, boolean enabled) {
     // Remove all previous cookies
@@ -1232,26 +1232,26 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
 
       if (mOnScrollDispatchHelper.onScrollChanged(x, y)) {
         ScrollEvent event = ScrollEvent.obtain(
-                this.getId(),
-                ScrollEventType.SCROLL,
-                x,
-                y,
-                mOnScrollDispatchHelper.getXFlingVelocity(),
-                mOnScrollDispatchHelper.getYFlingVelocity(),
-                this.computeHorizontalScrollRange(),
-                this.computeVerticalScrollRange(),
-                this.getWidth(),
-                this.getHeight());
+          this.getId(),
+          ScrollEventType.SCROLL,
+          x,
+          y,
+          mOnScrollDispatchHelper.getXFlingVelocity(),
+          mOnScrollDispatchHelper.getYFlingVelocity(),
+          this.computeHorizontalScrollRange(),
+          this.computeVerticalScrollRange(),
+          this.getWidth(),
+          this.getHeight());
 
         dispatchEvent(this, event);
       }
     }
 
     protected void cleanupCallbacksAndDestroy() {
-      this.detachAllViewsFromParent();
-      setWebViewClient(null);
-      this.removeAllViews();
-      destroy();
+        ((ViewGroup) this.getParent()).removeView(this);
+        this.removeAllViews();
+        setWebViewClient(null);
+        destroy();
     }
 
     protected class RNCWebViewBridge {
