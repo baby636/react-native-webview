@@ -1248,7 +1248,9 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
     }
 
     protected void cleanupCallbacksAndDestroy() {
+      this.detachAllViewsFromParent();
       setWebViewClient(null);
+      this.removeAllViews();
       destroy();
     }
 
