@@ -254,7 +254,7 @@ static NSDictionary* customCertificatesForHost;
         WKUserScript *initialScript =
         [[WKUserScript alloc] initWithSource:_injectedJavaScript
                                injectionTime:WKUserScriptInjectionTimeAtDocumentStart
-                              forMainFrameOnly: YES];
+                              forMainFrameOnly: NO];
         [wkWebViewConfig.userContentController addUserScript:initialScript];
     }
   }
@@ -326,7 +326,12 @@ static NSDictionary* customCertificatesForHost;
             cookie.expiresDate.timeIntervalSince1970 * 1000
           ];
         }
-        [script appendString:@";\n"];
+        [script appendString:@"})();\n"];
+
+        WKUserScript* cookieInScript = [[WKUserScript alloc] initWithSource:script
+                                                              injectionTime:WKUserScriptInjectionTimeAtDocumentStart
+                                                           forMainFrameOnly:NO];
+        [wkWebViewConfig.userContentController addUserScript:cookieInScript];
       }
       [script appendString:@"})();\n"];
 
