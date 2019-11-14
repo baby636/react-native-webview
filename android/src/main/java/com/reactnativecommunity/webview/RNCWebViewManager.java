@@ -229,6 +229,10 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
       return null;
     }
 
+    if(!URLUtil.isValidUrl(urlStr)){
+      return null;
+    }
+
     try {
 
       Request req = new Request.Builder()
@@ -250,7 +254,7 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
       if(reasonPhrase.isEmpty()) reasonPhrase = "OK";
       return new WebResourceResponse(MIME_TEXT_HTML, charset.name(), response.code(), reasonPhrase, rebuildHeaders(response.headers()), is);
 
-    } catch (IOException e) {
+    } catch (Exception e) {
       return null;
     }
   }
