@@ -198,7 +198,7 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
       urlString.contains("|") || urlString.endsWith(".js") || urlString.endsWith(".css") || urlString.endsWith(".ico");
 
     if(!invalid && (urlString.contains(".js") || urlString.contains(".css") || urlString.contains(".ico"))) {
-      String[] parts = urlString.split("?");
+      String[] parts = urlString.split("\\?");
       if (parts[0].endsWith(".js") || parts[0].endsWith(".css") || parts[0].endsWith(".ico")) {
         invalid = true;
       }
@@ -225,11 +225,9 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
       return null;
     }
 
-
     if(!request.getMethod().equalsIgnoreCase("GET")){
       return null;
     }
-
 
     try {
 
@@ -246,13 +244,11 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
       Charset charset = contentType != null ? contentType.charset(UTF_8) : UTF_8;
       if (response.code() < HttpURLConnection.HTTP_MULT_CHOICE || response.code() >= HttpURLConnection.HTTP_BAD_REQUEST) {
         is = new InputStreamWithInjectedJS(is, webView.injectedJS, charset, webView.getContext());
-      } else {
-        return null;
       }
 
       String reasonPhrase = response.message();
       if(reasonPhrase.isEmpty()) reasonPhrase = "OK";
-      return new WebResourceResponse(contentType.toString(), charset.name(), response.code(), reasonPhrase, rebuildHeaders(response.headers()), is);
+      return new WebResourceResponse(MIME_TEXT_HTML, charset.name(), response.code(), reasonPhrase, rebuildHeaders(response.headers()), is);
 
     } catch (IOException e) {
       return null;
