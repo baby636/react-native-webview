@@ -177,6 +177,7 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
     mBlacklist.put("google.com", "GET|POST|PUT|DELETE");
     mBlacklist.put("duckduckgo.com", "GET|POST|PUT|DELETE");
     mBlacklist.put("beta.cent.co", "POST|PUT|DELETE");
+    mBlacklist.put("peepeth.com", "POST|PUT|DELETE");
 
     Builder b = new Builder();
     httpClient = b
