@@ -161,8 +161,23 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
   protected boolean mAllowsFullscreenVideo = false;
   protected @Nullable String mUserAgent = null;
   protected @Nullable String mUserAgentWithApplicationName = null;
+  protected static Map<String, String> mBlacklist;
+
+
 
   public RNCWebViewManager() {
+
+    /** LIST OF SITES WHERE WE SHOULDN'T INJECT WEB3 **/
+    mBlacklist = new HashMap<>();
+    mBlacklist.put("github.com", "GET|POST|PUT|DELETE");
+    mBlacklist.put("faucet.metamask.io", "POST");
+    mBlacklist.put("mobile.twitter.com", "GET|POST|PUT|DELETE");
+    mBlacklist.put("facebook.com", "GET|POST|PUT|DELETE");
+    mBlacklist.put("m.facebook.com", "GET|POST|PUT|DELETE");
+    mBlacklist.put("google.com", "GET|POST|PUT|DELETE");
+    mBlacklist.put("duckduckgo.com", "GET|POST|PUT|DELETE");
+    mBlacklist.put("beta.cent.co", "POST|PUT|DELETE");
+
     Builder b = new Builder();
     httpClient = b
       .followRedirects(false)
@@ -192,17 +207,23 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
   }
 
   public static Boolean urlStringLooksInvalid(String urlString) {
+
+    String[] disallowedExtensions = {".js", "css", ".ico", ".svg", ".xml", ".png", ".jpg", ".jpeg", ".gif"};
+
     Boolean invalid =  urlString == null ||
       urlString.trim().equals("") ||
-      !(urlString.startsWith("http") && !urlString.startsWith("www")) ||
-      urlString.contains("|") || urlString.endsWith(".js") || urlString.endsWith(".css") || urlString.endsWith(".ico");
+      !urlString.startsWith("http");
 
-    if(!invalid && (urlString.contains(".js") || urlString.contains(".css") || urlString.contains(".ico"))) {
+    if(!invalid) {
       String[] parts = urlString.split("\\?");
-      if (parts[0].endsWith(".js") || parts[0].endsWith(".css") || parts[0].endsWith(".ico")) {
-        invalid = true;
+      for(int i=0; i < disallowedExtensions.length; i++){
+          if(parts[0].endsWith(disallowedExtensions[i])){
+            invalid = true;
+            break;
+          }
       }
     }
+
     return invalid;
   }
 
@@ -214,18 +235,33 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
     return contentTypeAndCharset.startsWith(MIME_TEXT_HTML);
   }
 
+
+  private Boolean isBlacklisted(Uri url, String requestType){
+    String host = url.getHost();
+    if(mBlacklist.containsKey(host)){
+      String blacklistedRequestTypes = mBlacklist.get(host);
+      if(blacklistedRequestTypes.contains(requestType)){
+        return true;
+      }
+    }
+    return false;
+
+  }
+
   @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
   public WebResourceResponse shouldInterceptRequest(WebResourceRequest request, Boolean onlyMainFrame, RNCWebView webView) {
     Uri url = request.getUrl();
     String urlStr = url.toString();
+
+    if(isBlacklisted(url, request.getMethod())){
+      return null;
+    }
+
+
     if (onlyMainFrame && !request.isForMainFrame()) {
       return null;
     }
     if (RNCWebViewManager.urlStringLooksInvalid(urlStr)) {
-      return null;
-    }
-
-    if(!request.getMethod().equalsIgnoreCase("GET")){
       return null;
     }
 
@@ -235,10 +271,21 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
 
     try {
 
-      Request req = new Request.Builder()
-        .header("User-Agent", mUserAgent)
+      Map<String,String> requestHeaders = request.getRequestHeaders();
+      // Add user agent
+      requestHeaders.put("User-Agent", mUserAgent);
+      Request.Builder builder = new Request.Builder();
+
+      // Add the original headers
+      for (Map.Entry<String, String> entry : requestHeaders.entrySet()) {
+        builder.addHeader(entry.getKey(), entry.getValue());
+      }
+
+      // Re-build the request
+      Request req = builder
         .url(urlStr)
         .build();
+
       Response response = httpClient.newCall(req).execute();
       if (!RNCWebViewManager.responseRequiresJSInjection(response)) {
         return null;
@@ -250,28 +297,11 @@ public class RNCWebViewManager extends SimpleViewManager<WebView> {
         is = new InputStreamWithInjectedJS(is, webView.injectedJS, charset, webView.getContext());
       }
 
-      String reasonPhrase = response.message();
-      if(reasonPhrase.isEmpty()) reasonPhrase = "OK";
-      return new WebResourceResponse(MIME_TEXT_HTML, charset.name(), response.code(), reasonPhrase, rebuildHeaders(response.headers()), is);
+      return new WebResourceResponse(MIME_TEXT_HTML, charset.name(), is);
 
     } catch (Exception e) {
       return null;
     }
-  }
-
-  private static Map<String, String> rebuildHeaders(Headers headers){
-    Map<String, String> newHeaders =  new HashMap();
-    Set<String> headerNames = headers.names();
-    Iterator<String> itr = headerNames.iterator();
-    while(itr.hasNext()){
-      String name  = itr.next();
-      List<String> values = headers.values(name);
-      for (String val : values) {
-        newHeaders.put(name, val);
-      }
-    }
-    return newHeaders;
-
   }
 
 
