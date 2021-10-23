@@ -15,8 +15,9 @@
     "ci:publish": "yarn semantic-release",
     "lint": "yarn tsc --noEmit && yarn eslint ./src --ext .ts,.tsx",
     "build": "yarn tsc",
-    "prepare": "yarn build",
-    "test": "yarn jest"
+    "prepare": "yarn run snyk-protect && yarn build",
+    "test": "yarn jest",
+    "snyk-protect": "snyk-protect"
   },
   "rn-docs": {
     "title": "Webview",
@@ -28,7 +29,8 @@
   },
   "dependencies": {
     "escape-string-regexp": "1.0.5",
-    "invariant": "2.2.4"
+    "invariant": "2.2.4",
+    "@snyk/protect": "latest"
   },
   "devDependencies": {
     "@babel/core": "7.3.4",
@@ -67,5 +69,6 @@
     "index.js",
     "index.d.ts",
     "react-native-webview.podspec"
-  ]
+  ],
+  "snyk": true
 }
