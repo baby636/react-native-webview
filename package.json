@@ -32,7 +32,7 @@
   },
   "devDependencies": {
     "@babel/core": "7.3.4",
-    "@semantic-release/git": "7.0.5",
+    "@semantic-release/git": "7.0.16",
     "@types/escape-string-regexp": "1.0.0",
     "@types/invariant": "^2.2.29",
     "@types/jest": "24.0.11",
@@ -49,11 +49,11 @@
     "eslint-plugin-jsx-a11y": "6.2.1",
     "eslint-plugin-react": "7.12.4",
     "eslint-plugin-react-native": "3.6.0",
-    "jest": "24.5.0",
+    "jest": "25.0.0",
     "metro-react-native-babel-preset": "0.53.1",
     "react": "16.8.3",
-    "react-native": "0.60.5",
-    "semantic-release": "15.10.3",
+    "react-native": "0.69.12",
+    "semantic-release": "17.0.1",
     "typescript": "3.3.3333"
   },
   "repository": {
