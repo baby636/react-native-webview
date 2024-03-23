@@ -52,8 +52,8 @@
     "jest": "24.5.0",
     "metro-react-native-babel-preset": "0.53.1",
     "react": "16.8.3",
-    "react-native": "0.60.5",
-    "semantic-release": "15.10.3",
+    "react-native": "0.69.12",
+    "semantic-release": "17.0.1",
     "typescript": "3.3.3333"
   },
   "repository": {
